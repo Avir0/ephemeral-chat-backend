@@ -242,7 +242,6 @@
 //     process.exit(1);
 //   }
 // });
-
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -254,14 +253,13 @@ import Room from './models/Room.js';
 import roomsRouter from './routes/rooms.js';
 
 dotenv.config();
-
 const app = express();
 app.use(express.json());
 
-// ✅ Multiple origins support
+// ✅ Multiple origins support (frontend production + preview)
 const allowedOrigins = [
   'https://ephemeral-chat-frontend.vercel.app', // production
-  'https://ephemeral-chat-frontend-gos3yfpka-avir0s-projects.vercel.app', // preview
+  'https://ephemeral-chat-frontend-jrpb8r47h-avir0s-projects.vercel.app', // preview
   process.env.CLIENT_URL, // optional override
 ].filter(Boolean);
 
@@ -283,7 +281,7 @@ app.use('/api/rooms', roomsRouter);
 
 const server = http.createServer(app);
 
-// ✅ Socket.IO
+// ✅ Socket.IO with CORS
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
@@ -292,26 +290,22 @@ const io = new Server(server, {
   },
 });
 
-// Track participants
+// Track participants in-memory
 const participants = new Map(); // roomId -> Set(socketId)
 function getRoomSet(roomId) {
   if (!participants.has(roomId)) participants.set(roomId, new Set());
   return participants.get(roomId);
 }
 
-// Socket.IO logic
+// Socket.IO events
 io.on('connection', (socket) => {
   socket.on('join-room', async ({ roomId, username }) => {
     socket.join(roomId);
     socket.data.roomId = roomId;
     socket.data.username = username || 'Anonymous';
-
     getRoomSet(roomId).add(socket.id);
 
-    const recent = await Message.find({ room: roomId })
-      .sort({ createdAt: 1 })
-      .limit(100)
-      .lean();
+    const recent = await Message.find({ room: roomId }).sort({ createdAt: 1 }).limit(100).lean();
     socket.emit('chat-history', recent);
 
     io.to(roomId).emit('system', { text: `${socket.data.username} joined.`, ts: Date.now() });
@@ -327,13 +321,8 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('chat-message', msg.toObject()); // ✅ send plain object
   });
 
-  socket.on('leave-room', async () => {
-    await handleDisconnect(socket);
-  });
-
-  socket.on('disconnect', async () => {
-    await handleDisconnect(socket);
-  });
+  socket.on('leave-room', async () => await handleDisconnect(socket));
+  socket.on('disconnect', async () => await handleDisconnect(socket));
 });
 
 async function handleDisconnect(socket) {
@@ -344,6 +333,7 @@ async function handleDisconnect(socket) {
   const set = getRoomSet(roomId);
   set.delete(socket.id);
   socket.leave(roomId);
+
   io.to(roomId).emit('system', { text: `${username} left.`, ts: Date.now() });
 
   if (set.size === 0) {
@@ -355,7 +345,6 @@ async function handleDisconnect(socket) {
 }
 
 const PORT = process.env.PORT || 5000;
-
 server.listen(PORT, async () => {
   try {
     await connectDB(process.env.MONGO_URI);
