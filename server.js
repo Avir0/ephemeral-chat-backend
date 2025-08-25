@@ -259,25 +259,25 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-// ✅ CORS setup (allow localhost + deployed frontend)
-// const allowedOrigins = [
-//   process.env."https://ephemeral-chat-frontend.vercel.app" || "*",
-//   method: ["// for local dev
-// ];
+//✅ CORS setup (allow localhost + deployed frontend)
+const allowedOrigin =process.env.CLIENT_URL || 'https://ephemeral-chat-frontend.vercel.app';
 
-// app.use(
-//   cors({
-//     origin: allowedOrigins,
-//     credentials: true,
-//   })
-// );
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "*", // allow frontend deployed URL
-    methods: ["GET", "POST"],
+    origin: allowedOrigins,
+    credentials: true,
   })
 );
+
+// app.use(
+//   cors({
+//     origin: process.env.FRONTEND_URL || "*", // allow frontend deployed URL
+//     methods: ["GET", "POST"],
+//   })
+// );
+
+
 
 // ✅ REST routes
 app.use("/api/rooms", roomsRouter);
