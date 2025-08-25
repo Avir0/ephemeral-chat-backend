@@ -116,24 +116,17 @@
 //   }
 // });
 
-
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import path from 'path'; // ✅ Added
-import { fileURLToPath } from 'url'; // ✅ Needed for __dirname in ES modules
 import { connectDB } from './config/db.js';
 import Message from './models/Message.js';
 import Room from './models/Room.js';
 import roomsRouter from './routes/rooms.js';
 
 dotenv.config();
-
-// ✅ Fix for __dirname in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
@@ -149,16 +142,11 @@ app.use(
   })
 );
 
-// REST routes
+// ✅ REST routes
 app.use('/api/rooms', roomsRouter);
 
-// ✅ Serve frontend build in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'frontend/dist')));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
-  });
-}
+// ❌ Removed "serve frontend build" section
+// Because frontend is deployed separately on Vercel
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -247,6 +235,7 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, async () => {
   try {
     await connectDB(process.env.MONGO_URI);
+    console.log(`✅ MongoDB connected`);
     console.log(`🚀 Server listening on port ${PORT}`);
   } catch (err) {
     console.error('DB connection failed:', err.message);
